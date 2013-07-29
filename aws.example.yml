@@ -1,0 +1,6 @@
+aws:
+  instance_type     : 't1.micro'
+  access_key_id     : '<your access key id here>'
+  secret_access_key : '<your secret access key here>'
+  keypair_name      : '<your keypair name here>'
+  security_groups   : [ 'your security group name here' ]
