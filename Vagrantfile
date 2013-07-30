@@ -3,22 +3,22 @@
 
 require 'yaml'
 
-aws_config = YAML.load_file('aws.yml')["aws"]
+# Load sensitive AWS credentials from external file
+if File.exist?("aws.yml")
+  aws_config = YAML.load_file('aws.yml')["aws"]
+  pemfile = aws_config["keypair_name"] + ".pem"
+end
 
 Vagrant.configure("2") do |config|
 
-  config.vm.provider :aws do |aws|
-    config.vm.box     = "dummy"
-    config.vm.box_url = "http://dev.nemac.org/boxes/dummy.box"
-  end
-
-  config.vm.provider :aws do |virtualbox|
-    config.vm.box     = "centos-6.4-base"
-    config.vm.box_url = "http://dev.nemac.org/boxes/CentOS-6.4-base.box"
-  end
+  config.vm.box     = "centos-6.4-base"
+  config.vm.box_url = "http://dev.nemac.org/boxes/CentOS-6.4-base.box"
 
   #####################################################3
   config.vm.provider :aws do |aws, override|
+    override.vm.box              = "dummy"
+    override.vm.box_url          = "http://dev.nemac.org/boxes/dummy.box"
+
     aws.instance_type             = aws_config["instance_type"]
     aws.instance_name             = aws_config["instance_name"]
     aws.access_key_id             = aws_config["access_key_id"]
@@ -36,18 +36,20 @@ Vagrant.configure("2") do |config|
     #   6. back at the AWS console, select the instance and choose "Create Image" to create the AMId
 
     override.ssh.username         = "root"
-    override.ssh.private_key_path = aws_config["keypair_name"] + ".pem"
+    override.ssh.private_key_path = pemfile
   end
   #####################################################3
 
   config.vm.synced_folder "./puppet", "/etc/puppet/files"
 
+  # Use shell provisioner to install puppet yum repo, puppet, epel repo:
   config.vm.provision :shell, :inline => <<-HEREDOC
     rpm -Uvh http://yum.puppetlabs.com/el/6/products/i386/puppetlabs-release-6-7.noarch.rpm
     yum -y install puppet
     rpm -Uvh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
   HEREDOC
 
+  # use puppet provisioner to install everything else (see details in puppet/site.pp)
   config.vm.provision :puppet,
     :options => ["--fileserverconfig=/vagrant/puppet/fileserver.conf"] do
       |puppet|
@@ -56,6 +58,7 @@ Vagrant.configure("2") do |config|
     puppet.manifest_file  = "site.pp"
   end
 
+  # use a private IP address for virtualbox VMs
   config.vm.network :private_network, ip: "192.168.33.20"
 
 end

@@ -5,3 +5,4 @@ Plots
 scripts
 tmp
 aws.yml
+*.pem
